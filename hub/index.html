@@ -1,7 +1,457 @@
-<!DOCTYPE html><html><head><title>K12 Messages</title>
-<script>
-const user = new URLSearchParams(location.search).get('u') || prompt("Your name:");
-document.title = user + " – Messages";
-</script>
-<script src="https://cdn.jsdelivr.net/npm/dumb-chat@latest"></script>
-</head><body></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudentHub Chat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Socket.io Client Library (Served by your Node server) -->
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        /* --- CSS Variables --- */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --header-bg: #ffffff;
+            --card-bg: #f0f2f5; /* Slightly distinct for chat background */
+            --card-border: #dedede;
+            --primary-color: #1865f2; 
+            --toggle-bg: #ccc;
+            --toggle-active: #1865f2;
+            --menu-bg: #ffffff;
+            --menu-border: #ccc;
+            --msg-own-bg: #1865f2;
+            --msg-own-text: #ffffff;
+            --msg-other-bg: #e4e6eb;
+            --msg-other-text: #050505;
+        }
+
+        body.dark-mode {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --header-bg: #1e1e1e;
+            --card-bg: #000000;
+            --card-border: #333;
+            --primary-color: #6ea8fe;
+            --toggle-bg: #555;
+            --menu-bg: #2c2c2c;
+            --menu-border: #555;
+            --msg-own-bg: #6ea8fe;
+            --msg-own-text: #121212;
+            --msg-other-bg: #3a3b3c;
+            --msg-other-text: #e4e6eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Lato', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; /* Prevent body scroll, handle in chat container */
+        }
+
+        /* --- Header --- */
+        header {
+            background-color: var(--header-bg);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        /* Settings */
+        .settings-container { position: relative; }
+        .settings-btn {
+            background: none; border: none; cursor: pointer;
+            font-size: 1rem; color: var(--primary-color); font-weight: bold; padding: 10px;
+        }
+        .settings-dropdown {
+            display: none; position: absolute; right: 0; top: 45px;
+            background-color: var(--menu-bg); border: 1px solid var(--menu-border);
+            border-radius: 4px; padding: 20px; width: 250px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2); z-index: 1000;
+        }
+        .settings-dropdown.active { display: block; }
+        
+        /* Switch */
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--toggle-bg); transition: .4s; border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 14px; width: 14px;
+            left: 3px; bottom: 3px; background-color: white;
+            transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--toggle-active); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        /* --- Chat Area --- */
+        main {
+            flex: 1;
+            background-color: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Bubbles */
+        .message-row {
+            display: flex;
+            flex-direction: column;
+            max-width: 70%;
+        }
+
+        .message-row.own {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .message-row.other {
+            align-self: flex-start;
+            align-items: flex-start;
+        }
+
+        .username-label {
+            font-size: 0.75rem;
+            margin-bottom: 4px;
+            opacity: 0.7;
+            margin-left: 5px;
+            margin-right: 5px;
+        }
+
+        .bubble {
+            padding: 10px 15px;
+            border-radius: 18px;
+            font-size: 1rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+            position: relative;
+        }
+
+        .own .bubble {
+            background-color: var(--msg-own-bg);
+            color: var(--msg-own-text);
+            border-bottom-right-radius: 4px;
+        }
+
+        .other .bubble {
+            background-color: var(--msg-other-bg);
+            color: var(--msg-other-text);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Input Area */
+        .input-area {
+            background-color: var(--header-bg);
+            padding: 15px;
+            border-top: 1px solid var(--card-border);
+            display: flex;
+            gap: 10px;
+        }
+
+        #chat-input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+
+        #chat-input:focus { outline: none; border-color: var(--primary-color); }
+
+        #send-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* --- Username Modal --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal {
+            background-color: var(--header-bg);
+            padding: 30px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+
+        .modal h2 { margin-bottom: 20px; color: var(--primary-color); }
+        
+        .modal input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            border: 1px solid var(--card-border);
+            font-size: 1rem;
+        }
+
+        .modal button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="logo">Hub Chat</div>
+        <div class="settings-container">
+            <button class="settings-btn" id="settingsBtn">Settings</button>
+            <div class="settings-dropdown" id="settingsDropdown">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Dark Mode</span>
+                    <label class="switch">
+                        <input type="checkbox" id="darkModeToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Chat Area -->
+    <main>
+        <div id="messages">
+            <!-- Messages will appear here -->
+        </div>
+        <div class="input-area">
+            <input id="chat-input" autocomplete="off" placeholder="Type a message..." />
+            <button id="send-btn">Send</button>
+        </div>
+    </main>
+
+    <!-- Username Modal -->
+    <div id="username-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <h2>Welcome to the Hub</h2>
+            <p style="margin-bottom: 15px;">Please choose a username to start chatting.</p>
+            <input type="text" id="username-input" placeholder="e.g. Student123" maxlength="15">
+            <button onclick="saveUsername()">Join Chat</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Settings & UI Logic ---
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsDropdown = document.getElementById('settingsDropdown');
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsDropdown.classList.toggle('active');
+        });
+
+        window.addEventListener('click', () => settingsDropdown.classList.remove('active'));
+
+        if (localStorage.getItem('theme') === 'dark') {
+            body.classList.add('dark-mode');
+            darkModeToggle.checked = true;
+        }
+
+        darkModeToggle.addEventListener('change', () => {
+            if (darkModeToggle.checked) {
+                body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.classList.remove('dark-mode');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+
+        // --- 2. Username & Chat Logic ---
+        let username = "";
+        let socket;
+
+        // Cookie Helper
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        function init() {
+            const storedUser = getCookie("hub_username");
+            const modal = document.getElementById('username-modal');
+
+            if (storedUser) {
+                username = storedUser;
+                connectChat();
+            } else {
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function saveUsername() {
+            const input = document.getElementById('username-input');
+            const val = input.value.trim();
+            if (val.length > 0) {
+                username = val;
+                // Save cookie for 1 year
+                document.cookie = `hub_username=${val}; path=/; max-age=31536000`;
+                document.getElementById('username-modal').classList.add('hidden');
+                connectChat();
+            } else {
+                alert("Please enter a username.");
+            }
+        }
+
+        function createMessageElement(user, msg, isOwn) {
+            const row = document.createElement('div');
+            row.className = `message-row ${isOwn ? 'own' : 'other'}`;
+
+            const label = document.createElement('div');
+            label.className = 'username-label';
+            label.textContent = user;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.textContent = msg;
+
+            row.appendChild(label);
+            row.appendChild(bubble);
+            return row;
+        }
+
+        function scrollToBottom() {
+            const messages = document.getElementById('messages');
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function connectChat() {
+            // Check if Socket.io is loaded (It won't be in this preview, so we use fallback)
+            if (typeof io !== 'undefined') {
+                // --- REAL SERVER MODE ---
+                socket = io({
+                    auth: {
+                        serverOffset: 0
+                    }
+                });
+
+                const form = document.querySelector('.input-area');
+                const input = document.getElementById('chat-input');
+                const sendBtn = document.getElementById('send-btn');
+
+                const sendMessage = () => {
+                    if (input.value) {
+                        // Send username AND message
+                        socket.emit('chat message', { user: username, text: input.value });
+                        input.value = '';
+                    }
+                };
+
+                sendBtn.addEventListener('click', sendMessage);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') sendMessage();
+                });
+
+                socket.on('chat message', (msgData, serverOffset) => {
+                    // msgData should be { user: "name", text: "msg" }
+                    const item = createMessageElement(msgData.user, msgData.text, msgData.user === username);
+                    document.getElementById('messages').appendChild(item);
+                    scrollToBottom();
+                    socket.auth.serverOffset = serverOffset;
+                });
+
+            } else {
+                // --- PREVIEW / DEMO MODE ---
+                console.log("Socket.io not detected. Running in Demo Mode.");
+                
+                const input = document.getElementById('chat-input');
+                const sendBtn = document.getElementById('send-btn');
+                const messages = document.getElementById('messages');
+
+                // Simulate receiving a welcome message
+                setTimeout(() => {
+                    const welcome = createMessageElement("System", "Welcome to the Hub! (Demo Mode)", false);
+                    messages.appendChild(welcome);
+                }, 500);
+
+                const sendDemoMessage = () => {
+                    if (input.value.trim()) {
+                        const text = input.value;
+                        
+                        // 1. Add my message immediately
+                        const myMsg = createMessageElement(username, text, true);
+                        messages.appendChild(myMsg);
+                        scrollToBottom();
+                        input.value = '';
+
+                        // 2. Simulate reply
+                        setTimeout(() => {
+                            const reply = createMessageElement("Bot", "I saw you said: " + text, false);
+                            messages.appendChild(reply);
+                            scrollToBottom();
+                        }, 1000);
+                    }
+                };
+
+                sendBtn.addEventListener('click', sendDemoMessage);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') sendDemoMessage();
+                });
+            }
+        }
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>

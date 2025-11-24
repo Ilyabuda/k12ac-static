@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Dashboard</title>
+    <!-- Importing a nice font to match the clean aesthetic -->
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- CSS Variables for Light/Dark Mode --- */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --header-bg: #ffffff;
+            --card-bg: #ffffff;
+            --card-border: #dedede;
+            --card-shadow: 0 4px 0 #dedede;
+            --card-hover-shadow: 0 8px 0 #cfcfcf;
+            --primary-color: #1865f2; /* Khan Academy Blue */
+            --button-text: #1865f2;
+            --footer-bg: #f7f8fa;
+            --toggle-bg: #ccc;
+            --toggle-active: #1865f2;
+            --menu-bg: #ffffff;
+            --menu-border: #ccc;
+        }
+
+        /* Dark Mode Overrides */
+        body.dark-mode {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --header-bg: #1e1e1e;
+            --card-bg: #2c2c2c;
+            --card-border: #444;
+            --card-shadow: 0 4px 0 #000;
+            --card-hover-shadow: 0 8px 0 #000;
+            --primary-color: #6ea8fe;
+            --button-text: #ffffff;
+            --footer-bg: #1e1e1e;
+            --toggle-bg: #555;
+            --menu-bg: #2c2c2c;
+            --menu-border: #555;
+        }
+
+        /* --- Global Resets --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Lato', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* --- Header & Settings --- */
+        header {
+            background-color: var(--header-bg);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            letter-spacing: -0.5px;
+        }
+
+        /* Settings Menu */
+        .settings-container {
+            position: relative;
+        }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--primary-color);
+            font-weight: bold;
+            padding: 10px;
+        }
+
+        .settings-btn:hover {
+            text-decoration: underline;
+        }
+
+        .settings-dropdown {
+            display: none; /* Hidden by default */
+            position: absolute;
+            right: 0;
+            top: 45px;
+            background-color: var(--menu-bg);
+            border: 1px solid var(--menu-border);
+            border-radius: 4px;
+            padding: 20px;
+            width: 280px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            z-index: 101;
+        }
+
+        .settings-dropdown.active {
+            display: block;
+        }
+
+        .dropdown-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--menu-border);
+            padding-bottom: 10px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        .setting-item:last-child {
+            margin-bottom: 0;
+        }
+
+        /* --- Toggle Switch CSS --- */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--toggle-bg);
+            transition: .4s;
+            border-radius: 26px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--toggle-active);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        /* --- Main Content --- */
+        main {
+            flex: 1;
+            padding: 4rem 2rem;
+            display: flex;
+            justify-content: center; /* Center the container */
+            align-items: flex-start;
+        }
+
+        /* The Grid Layout */
+        .container {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .section-header {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            color: var(--text-color);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 buttons per row */
+            gap: 25px;
+        }
+
+        /* Card Buttons */
+        .card-link {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-decoration: none;
+            background-color: var(--card-bg);
+            color: var(--button-text);
+            border: 1px solid var(--card-border);
+            border-radius: 4px;
+            aspect-ratio: 1 / 1; /* Makes them square */
+            font-size: 1.3rem;
+            font-weight: bold;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.2s;
+            text-align: center;
+            padding: 20px;
+            cursor: pointer;
+        }
+
+        .card-link:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--card-hover-shadow);
+            border-color: var(--primary-color);
+        }
+
+        .card-link:active {
+            transform: translateY(0px);
+            box-shadow: 0 2px 0 var(--card-border);
+        }
+
+        .card-icon {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+        }
+
+        /* --- Footer --- */
+        footer {
+            background-color: var(--footer-bg);
+            padding: 3rem 1rem;
+            border-top: 1px solid var(--card-border);
+            text-align: center;
+            margin-top: auto;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .footer-links a {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .footer-links a:hover {
+            text-decoration: underline;
+            color: var(--primary-color);
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr); /* 2 per row on tablets */
+            }
+        }
+
+        @media (max-width: 500px) {
+            .grid {
+                grid-template-columns: 1fr; /* 1 per row on phones */
+            }
+            header {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="logo">
+            <span>StudentHub</span>
+        </div>
+        <div class="settings-container">
+            <button class="settings-btn" id="settingsBtn">Settings</button>
+            <div class="settings-dropdown" id="settingsDropdown">
+                <div class="dropdown-title">Preferences</div>
+                
+                <!-- Dark Mode Switch -->
+                <div class="setting-item">
+                    <span>Dark Mode</span>
+                    <label class="switch">
+                        <input type="checkbox" id="darkModeToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Load Games Switch -->
+                <div class="setting-item">
+                    <span>Load Games</span>
+                    <label class="switch">
+                        <input type="checkbox" id="loadGamesToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main>
+        <div class="container">
+            <h1 class="section-header">Apps & Games</h1>
+            <div class="grid" id="gameGrid">
+                
+                <!-- Provided Links styled as Big Squares -->
+                <a href="https://typingclub.com" class="card-link" target="_blank">
+                    <div class="card-icon">⌨️</div>
+                    TypingClub
+                </a>
+                
+                <a href="https://nitrotype.com" class="card-link" target="_blank">
+                    <div class="card-icon">🏎️</div>
+                    Nitro Type
+                </a>
+                
+                <a href="https://coolmathgames.com" class="card-link" target="_blank">
+                    <div class="card-icon">➕</div>
+                    CoolMath
+                </a>
+                
+                <a href="https://poki.com" class="card-link restricted-game" target="_blank">
+                    <div class="card-icon">🎮</div>
+                    Poki
+                </a>
+                
+                <a href="https://1v1.lol" class="card-link restricted-game" target="_blank">
+                    <div class="card-icon">🔫</div>
+                    1v1.LOL
+                </a>
+
+                <!-- Placeholder for layout balance -->
+                <div class="card-link" style="opacity: 0.5; cursor: default; background-color: transparent; border-style: dashed;">
+                    <div class="card-icon">🔒</div>
+                    More Soon
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-links">
+            <a href="about.html">About</a>
+            <!-- Contact link triggers mailto -->
+            <a href="mailto:support@example.com">Contact</a>
+        </div>
+        <p style="font-size: 0.8rem; opacity: 0.7;">&copy; 2023 Student Hub</p>
+    </footer>
+
+    <script>
+        // 1. Toggle Settings Menu
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsDropdown = document.getElementById('settingsDropdown');
+
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent immediate closing
+            settingsDropdown.classList.toggle('active');
+        });
+
+        // Close menu if clicked outside
+        window.addEventListener('click', (event) => {
+            if (!settingsDropdown.contains(event.target) && event.target !== settingsBtn) {
+                settingsDropdown.classList.remove('active');
+            }
+        });
+
+        // 2. Dark Mode Logic
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const body = document.body;
+
+        // Check if user previously selected dark mode
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            body.classList.add('dark-mode');
+            darkModeToggle.checked = true;
+        }
+
+        darkModeToggle.addEventListener('change', () => {
+            if (darkModeToggle.checked) {
+                body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.classList.remove('dark-mode');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+        // 3. Load Games Switch Logic
+        const loadGamesToggle = document.getElementById('loadGamesToggle');
+        const restrictedGames = document.querySelectorAll('.restricted-game');
+
+        // Function to hide/show specific games
+        function updateGameVisibility(shouldShow) {
+            restrictedGames.forEach(game => {
+                game.style.display = shouldShow ? 'flex' : 'none';
+            });
+        }
+
+        // Check saved state for games on load
+        const savedGameState = localStorage.getItem('gamesLoaded') === 'true';
+        loadGamesToggle.checked = savedGameState;
+        
+        // Apply visibility immediately based on saved state
+        updateGameVisibility(savedGameState);
+
+        if(savedGameState) {
+             // ---------------Load
+             console.log("Games loaded from storage state");
+        }
+
+        loadGamesToggle.addEventListener('change', () => {
+            updateGameVisibility(loadGamesToggle.checked);
+
+            if (loadGamesToggle.checked) {
+                // ---------------Load
+                localStorage.setItem('gamesLoaded', 'true');
+            } else {
+                localStorage.setItem('gamesLoaded', 'false');
+            }
+        });
+    </script>
+
+</body>
+</html>
